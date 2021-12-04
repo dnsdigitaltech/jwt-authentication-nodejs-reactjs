@@ -19,6 +19,45 @@ const users = [
 
 ];
 
+let refreshTokens = [];
+
+app.post("/api/refresh", (req, res) => {
+    //O usuário faz refresh do token
+    const refreshToken = req.body.token;
+
+    //envia error se o token for inválido
+    if(!refreshToken) return res.status(401).json("Você não está autenticado!");
+    if(!refreshTokens.includes(refreshToken)) {
+        return res.status(403).json("Refresh token não é válido");
+    }
+    jwt.verify(refreshToken, "myRefreshSecretKey", (err, user) => {
+        err && console.log(err);
+        refreshTokens = refreshTokens.filter((token) => token !== refreshToken);
+
+        const newAccessToken = generateAccessToken(user);
+        const newRefreshToken = generateRefreshToken(user);
+
+        refreshTokens.push(newRefreshToken);
+
+        res.status(200).json({
+            accessToken: newAccessToken,
+            refreshToken: newRefreshToken
+        })
+    })
+    //se estiver tudo ok, cria um novo token de acesso, dar um refresh e envia pra o usuário
+})
+
+const generateAccessToken = (user) =>{
+    return jwt.sign({ id: user.id, isAdmin: user.isAdmin }, 
+    "mySecretKey",
+    {expiresIn: "15m"})
+}
+
+const generateRefreshToken = (user) =>{
+    return jwt.sign({ id: user.id, isAdmin: user.isAdmin }, 
+    "myRefreshSecretKey")
+}
+
 app.post("/api/login", (req, res) => {
     const{username, password} = req.body;
     const user = users.find(u=> {
@@ -26,11 +65,14 @@ app.post("/api/login", (req, res) => {
     });
     if(user){
         //gerar acesso ao token
-        const accessToken = jwt.sign({ id: user.id, isAdmin: user.isAdmin }, "mySecretKey");
+        const accessToken = generateAccessToken(user);
+        const refreshToken = generateRefreshToken(user);
+        refreshTokens.push(refreshToken);
         res.json({
             username: user.username,
             isAdmin: user.isAdmin,
-            accessToken
+            accessToken,
+            refreshToken
         })
     }else{
         res.status(400).json("Usuário ou senha está incorreto!");
@@ -45,7 +87,7 @@ const verify = (req ,res, next) => {
 
         jwt.verify(token, "mySecretKey", (err, user) => {
             if(err) {
-                return res.status(403).json("Token não está válido!");
+                return res.status(403).json("Token não é válido!");
             }
             req.user = user;
             next();
