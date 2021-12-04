@@ -37,4 +37,31 @@ app.post("/api/login", (req, res) => {
     }
 });
 
+//criando autorização
+const verify = (req ,res, next) => {
+    const authHeader = req.headers.authorization;
+    if(authHeader) {
+        const token = authHeader.split(" ")[1];
+
+        jwt.verify(token, "mySecretKey", (err, user) => {
+            if(err) {
+                return res.status(403).json("Token não está válido!");
+            }
+            req.user = user;
+            next();
+        });
+        
+    } else {
+        res.status(401).json("Você não está autorizado!");
+    }
+}
+
+app.delete("/api/users/:userId", verify, (req, res) => {
+    if(req.user.id === req.params.userId || req.user.isAdmin){
+        res.status(200).json("Usuário foi deletado com sucesso!");
+    } else {
+        res.status(403).json("Você não tem permissão para deletar este usuário");
+    } 
+})
+
 app.listen(5000, () => console.log("Servidor executando, http://localhost:5000"));
