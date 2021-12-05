@@ -1,8 +1,9 @@
 const express = require("express");
 const app = express();
+const cors = require('cors');
 const jwt = require("jsonwebtoken");
 app.use(express.json());
-
+app.use(cors());
 const users = [
     {
         id: "1",
